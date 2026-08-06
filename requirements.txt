@@ -1,0 +1,10 @@
+# YouTube Shorts otomasyon sistemi - Python bağımlılıkları
+# Kurulum: pip install -r requirements.txt
+
+yt-dlp>=2024.8.6      # YouTube video/altyazı indirme ve aralık kesme
+openai>=1.40.0        # Abacus AI RouteLLM (OpenAI uyumlu) istemcisi
+
+# NOT: FFmpeg ve FFprobe sistem paketidir, pip ile kurulmaz:
+#   Ubuntu/Debian : sudo apt-get install -y ffmpeg
+#   macOS         : brew install ffmpeg
+#   Windows       : https://ffmpeg.org/download.html
