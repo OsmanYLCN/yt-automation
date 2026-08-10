@@ -22,7 +22,6 @@ from utils import (
     FFmpegError,
     format_timestamp,
     get_logger,
-    human_size,
     probe_video,
     run_command,
     safe_delete,

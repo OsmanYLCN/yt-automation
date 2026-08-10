@@ -3,10 +3,10 @@ config.py
 =========
 YouTube Shorts otomasyon sisteminin tüm ayarları bu dosyada toplanmıştır.
 Buradaki değerleri değiştirerek sistemin davranışını (model, çözünürlük,
-altyazı stili, klip süresi vb.) kolayca özelleştirebilirsiniz.
+altyazı stili, klip süresi vb.) kolaylıkla özelleştirebilirsiniz.
 
-Not: API anahtarı öncelikle ortam değişkeninden okunur. Ortam değişkeni
-yoksa aşağıdaki sabit değer kullanılır.
+API anahtarları ve hassas bilgiler proje kökündeki `.env` dosyasından
+okunur. Bu dosya .gitignore'a eklidir ve GitHub'a gönderilmez.
 """
 
 from __future__ import annotations
@@ -15,16 +15,31 @@ import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# .env dosyasını yükle (python-dotenv gerektirmez)
+# ---------------------------------------------------------------------------
+# Proje klasöründeki .env dosyası varsa içindeki KEY=VALUE satırlarını
+# os.environ'a ekler — sadece henüz tanımlanmamış değişkenleri doldurur.
+_env_file = Path(__file__).resolve().parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _key, _, _val = _line.partition("=")
+            os.environ.setdefault(_key.strip(), _val.strip())
+
+# ---------------------------------------------------------------------------
 # 1) ABACUS AI ROUTELLM API AYARLARI
 # ---------------------------------------------------------------------------
 
-# API anahtarı: önce ortam değişkenleri kontrol edilir, yoksa placeholder kullanılır.
-# Kendi anahtarınızı buraya yazabilir ya da terminalde şu şekilde tanımlayabilirsiniz:
-#   export ABACUS_API_KEY="s2_xxxxxxxxxxxxxxxx"
+# API anahtarı: önce ortam değişkenleri kontrol edilir.
+# Kendi anahtarınızı terminalde ya da bir .env dosyasında tanımlayın:
+#   Windows : $env:ABACUS_API_KEY = "s2_xxxxxxxxxxxxxxxx"
+#   Linux   : export ABACUS_API_KEY="s2_xxxxxxxxxxxxxxxx"
+# Anahtarı doğrudan bu dosyaya YAZMAYIN — git geçmişine girer.
 ABACUS_API_KEY: str = (
     os.getenv("ABACUS_ROUTELLM_API_KEY")
     or os.getenv("ABACUS_API_KEY")
-    or "s2_ef691643a63348f48399c9bc9265472d"
+    or "BURAYA_API_ANAHTARINIZI_YAZIN"
 )
 
 # Abacus AI RouteLLM, OpenAI uyumlu bir arayüz sunar.
@@ -126,8 +141,6 @@ PIXEL_FORMAT: str = "yuv420p"     # Tüm oynatıcılarla uyum için
 # yt-dlp format seçici (dikey kırpma için 1080p yeterlidir)
 YTDLP_FORMAT: str = "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 
-# Aralık indirme başarısız olursa videonun tamamı indirilip kesilsin mi?
-ALLOW_FULL_DOWNLOAD_FALLBACK: bool = True
 YTDLP_RETRIES: int = 3
 
 # YouTube bazı sunucu IP'lerinde "Sign in to confirm you're not a bot" hatası verir.

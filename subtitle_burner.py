@@ -380,10 +380,10 @@ def burn_subtitles(
     except FFmpegError as exc:
         raise SubtitleError(f"Video okunamadı: {exc}") from exc
 
-    safe_subtitle = str(subtitle).replace("\\", "/").replace(":", "\\:")
+    safe_subtitle = escape_ffmpeg_filter_path(subtitle)
     ass_filter = f"ass=filename='{safe_subtitle}'"
     if fonts_dir:
-        safe_fonts = str(fonts_dir).replace("\\", "/").replace(":", "\\:")
+        safe_fonts = escape_ffmpeg_filter_path(fonts_dir)
         ass_filter += f":fontsdir='{safe_fonts}'"
 
     cmd = [
