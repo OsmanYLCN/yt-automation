@@ -1,14 +1,12 @@
 """
 video_downloader.py
 ===================
-YouTube videosunun SADECE belirtilen zaman aralığını indirir.
+YouTube videosunun belirtilen zaman aralığını indirir.
 
-yt-dlp'nin `download_ranges` özelliği kullanılır: bu sayede videonun tamamı
-indirilmeden yalnızca gereken saniyeler çekilir (bant genişliği ve süre tasarrufu).
-`force_keyframes_at_cuts=True` ile kesim noktaları kare hassasiyetinde olur.
-
-Aralık indirme başarısız olursa (bazı formatlarda desteklenmez) yedek olarak
-tüm video indirilip FFmpeg ile kesilebilir (config.ALLOW_FULL_DOWNLOAD_FALLBACK).
+Yöntem: Videonun tamamı yt-dlp ile indirilir, ardından FFmpeg kullanılarak
+`start_time` ve `end_time` aralığına göre yerelde kesim yapılır.
+Bu yaklaşım, YouTube'un parça parça veri çekme (range request) engelini
+devre dışı bırakır ve indirme donmalarını önler.
 """
 
 from __future__ import annotations
@@ -17,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import yt_dlp
-from yt_dlp.utils import download_range_func
 
 import config
 from transcript_fetcher import base_ytdlp_options
@@ -80,6 +77,10 @@ def download_clip(
     """
     Videonun [start_time, end_time] aralığını indirir.
 
+    Strateji: Videonun tamamı indirilir, ardından FFmpeg ile belirtilen
+    aralık yerelde kesilir. Bu yöntem YouTube'un range request
+    engelini atlatır.
+
     Args:
         url: YouTube video bağlantısı
         start_time: Başlangıç saniyesi
@@ -105,33 +106,7 @@ def download_clip(
         format_timestamp(start_time), format_timestamp(end_time), target_duration,
     )
 
-    # 1) Yalnızca istenen aralığı indirmeyi dene
-    options = base_ytdlp_options()
-    options.update(
-        {
-            "format": config.YTDLP_FORMAT,
-            "outtmpl": {"default": str(temp_dir / f"{stem}.%(ext)s")},
-            "merge_output_format": "mp4",
-            "download_ranges": download_range_func(None, [(start_time, end_time)]),
-            "force_keyframes_at_cuts": True,
-            "overwrites": True,
-            "quiet": True,
-            "noprogress": True,
-        }
-    )
-
-    downloaded: Path | None = None
-    try:
-        _download(url, options, "Aralık indirme")
-        downloaded = _find_downloaded_file(temp_dir, stem)
-        if downloaded is None:
-            raise DownloadError("Aralık indirme sonrası dosya bulunamadı.")
-        LOGGER.info("Aralık indirme tamam: %s (%s)", downloaded.name, human_size(downloaded.stat().st_size))
-    except DownloadError as exc:
-        LOGGER.warning("Aralık indirme başarısız: %s", exc)
-        if not config.ALLOW_FULL_DOWNLOAD_FALLBACK:
-            raise
-        downloaded = _download_full_and_cut(url, start_time, end_time, temp_dir, stem)
+    downloaded = _download_full_and_cut(url, start_time, end_time, temp_dir, stem)
 
     # İndirilen dosyayı doğrula
     try:
@@ -141,15 +116,6 @@ def download_clip(
 
     if info["duration"] <= 0.5:
         raise DownloadError(f"İndirilen klip boş görünüyor (süre={info['duration']:.2f} sn).")
-
-    # Süre beklenenden çok farklıysa FFmpeg ile yeniden kes
-    if info["duration"] > target_duration + 3.0:
-        LOGGER.warning(
-            "Klip süresi beklenenden uzun (%.1f sn > %.1f sn), yeniden kesiliyor.",
-            info["duration"], target_duration,
-        )
-        downloaded = _trim_with_ffmpeg(downloaded, 0.0, target_duration, temp_dir, f"{stem}_trim")
-        info = probe_video(downloaded)
 
     LOGGER.info(
         "Klip hazır: %dx%d | %.1f sn | %s ses",
@@ -162,8 +128,8 @@ def download_clip(
 def _download_full_and_cut(
     url: str, start_time: float, end_time: float, temp_dir: Path, stem: str
 ) -> Path:
-    """Yedek yol: videonun tamamını indirip FFmpeg ile istenen aralığı keser."""
-    LOGGER.info("Yedek yönteme geçiliyor: video tamamı indirilip kesilecek.")
+    """Videonun tamamını indirir ve FFmpeg ile istenen aralığı keser."""
+    LOGGER.info("Video tamamı indiriliyor, ardından FFmpeg ile kesilecek.")
     full_stem = f"{stem}_full"
     options = base_ytdlp_options()
     options.update(
