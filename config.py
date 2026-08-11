@@ -25,7 +25,8 @@ if _env_file.exists():
         _line = _line.strip()
         if _line and not _line.startswith("#") and "=" in _line:
             _key, _, _val = _line.partition("=")
-            os.environ.setdefault(_key.strip(), _val.strip())
+            os.environ.setdefault(_key.strip(), _val.strip().strip("'\""))
+
 
 # ---------------------------------------------------------------------------
 # 1) ABACUS AI ROUTELLM API AYARLARI

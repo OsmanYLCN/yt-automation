@@ -20,6 +20,8 @@ Kullanım örnekleri:
     python main.py URL1 URL2 URL3                   # Çoklu video
     python main.py --urls-file linkler.txt
     python main.py URL --model gemini-1.5-pro --subtitle-mode karaoke
+
+
     python main.py URL --manual-clip 120-165        # LLM'siz, elle aralık
 """
 

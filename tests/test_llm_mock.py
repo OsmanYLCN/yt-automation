@@ -100,6 +100,10 @@ class MockHandler(BaseHTTPRequestHandler):
 
 
 def run_tests() -> int:
+    # Windows'ta CP1252 kodlamasından kaynaklanan UnicodeEncodeError'u önle
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     config.ensure_directories()
     server = HTTPServer(("127.0.0.1", PORT), MockHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -112,7 +116,9 @@ def run_tests() -> int:
             base_url=f"http://127.0.0.1:{PORT}/v1",
             models=["mock-model"],
         )
-        plan = analyzer.analyze(FAKE_TRANSCRIPT)
+        # analyze() artık list[dict] döndürüyor; ilk (en yüksek puanlı) kesiti al
+        plans = analyzer.analyze(FAKE_TRANSCRIPT)
+        plan = plans[0]
 
         checks = [
             ("Klip başlangıcı doğru", plan["start_time"] == 100.0),

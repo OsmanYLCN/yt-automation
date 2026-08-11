@@ -102,3 +102,6 @@ temp/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Proje analiz ve durum raporu
+PROJECT_REPORT.md
