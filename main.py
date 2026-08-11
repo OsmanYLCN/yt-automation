@@ -5,14 +5,15 @@ main.py
 YouTube Shorts otomasyon hattının ana çalıştırıcısı.
 
 İşlem akışı (her bağlantı için):
-  1. Transkripti indir            -> transcript_fetcher
-  2. Dinamik çoklu kesit seçimi   -> llm_analyzer (Abacus AI RouteLLM)
+  1. Transkripti indir                -> transcript_fetcher
+  2. Dinamik çoklu kesit seçimi       -> llm_analyzer (Abacus AI RouteLLM)
      + her kesitin Türkçe çevirisi
-  3. Her kesit için sırayla:
-     a. Sadece o aralığı indir    -> video_downloader
-     b. 9:16 dikey formata çevir  -> video_processor
-     c. Türkçe altyazıyı göm     -> subtitle_burner
-  4. outputs/ klasörüne kaydet
+  3. Ham videoyu tek seferlik indir   -> video_downloader (raw_videos/ klasörüne)
+  4. Her kesit için sırayla:
+     a. Ham videodan aralığı kes      -> video_downloader
+     b. 9:16 dikey formata çevir      -> video_processor
+     c. Türkçe altyazıyı göm          -> subtitle_burner
+  5. outputs/ klasörüne kaydet
 
 Kullanım örnekleri:
     python main.py                    # Etkileşimli mod
@@ -167,9 +168,15 @@ def _process_single_clip(
     total_clips: int,
     output_dir: Path,
     args: argparse.Namespace,
+    raw_video: Path | None = None,
 ) -> dict[str, Any]:
     """
-    Tek bir kesiti indirir, 9:16 yapar, altyazı gömer ve kaydeder.
+    Tek bir kesiti işler: ham dosyadan keser (ya da indirir), 9:16 yapar,
+    altyazı gömer ve kaydeder.
+
+    Args:
+        raw_video: Önceden indirilmiş ham video dosyası (varsa kesim yapılır,
+                   yoksa tam indirme ile devam edilir).
 
     Returns:
         {'clip_index', 'status': 'ok'|'error', 'output'?, 'error'?, 'clip'?}
@@ -179,20 +186,30 @@ def _process_single_clip(
     temp_files: list[Path] = []
 
     try:
-        # --- a) Sadece seçilen aralığı indir ----
+        # --- a) Klip al: ham dosyadan kes ya da indir ----
         LOGGER.info(
-            "  [Kesit %d/%d] Aralık indiriliyor: %s -> %s (%.1f sn)",
+            "  [Kesit %d/%d] Aralık alınıyor: %s -> %s (%.1f sn)",
             clip_index, total_clips,
             format_timestamp(clip["start_time"]),
             format_timestamp(clip["end_time"]),
             clip["duration"],
         )
-        raw_clip = video_downloader.download_clip(
-            url,
-            clip["start_time"],
-            clip["end_time"],
-            video_id=f"{video_id}_{clip_label}",
-        )
+        if raw_video is not None:
+            # Ham dosya mevcut: sadece FFmpeg ile kes (ağ erişimi yok)
+            raw_clip = video_downloader.cut_clip_from_file(
+                raw_video,
+                clip["start_time"],
+                clip["end_time"],
+                video_id=f"{video_id}_{clip_label}",
+            )
+        else:
+            # Ham dosya yok (fallback): eski yöntemle tam indir + kes
+            raw_clip = video_downloader.download_clip(
+                url,
+                clip["start_time"],
+                clip["end_time"],
+                video_id=f"{video_id}_{clip_label}",
+            )
         temp_files.append(raw_clip)
 
         # --- b) 9:16 dikey formata çevir ----
@@ -370,8 +387,20 @@ def process_url(
                 "elapsed": time.time() - started,
             }
 
-        # --- 3) Her kesiti sırayla işle (indir → 9:16 → altyazı göm) ----
-        LOGGER.info("ADIM 3/3 | Kesitler işleniyor (%d adet)...", len(plans))
+        # --- 3) Ham videoyu tek seferlik indir ----
+        LOGGER.info("ADIM 3/4 | Ham video bir kez indiriliyor (raw_videos/ klasörüne)...")
+        raw_video: Path | None = None
+        try:
+            raw_video = video_downloader.download_full_video(
+                url, video_id=transcript["video_id"]
+            )
+        except video_downloader.DownloadError as exc:
+            LOGGER.warning(
+                "Ham video ön indirme başarısız; her kesit ayrı indirilecek: %s", exc
+            )
+
+        # --- 4) Her kesiti sırayla işle (kes → 9:16 → altyazı göm) ----
+        LOGGER.info("ADIM 4/4 | Kesitler işleniyor (%d adet)...", len(plans))
         clips_results: list[dict[str, Any]] = []
 
         for clip_idx, clip in enumerate(plans, start=1):
@@ -387,6 +416,7 @@ def process_url(
                 total_clips=len(plans),
                 output_dir=output_dir,
                 args=args,
+                raw_video=raw_video,
             )
             clips_results.append(result)
 

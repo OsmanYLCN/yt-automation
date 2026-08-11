@@ -104,4 +104,8 @@ ehthumbs.db
 Desktop.ini
 
 # Proje analiz ve durum raporu
-PROJECT_REPORT.md
+PROJECT_REPORT.md
+
+# Ham (tam) indirilen videolar
+raw_videos/
+

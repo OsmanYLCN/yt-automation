@@ -184,6 +184,122 @@ def _trim_with_ffmpeg(
     return output
 
 
+# ---------------------------------------------------------------------------
+# Ön İndirme — yeni fonksiyonlar (çoklu kesit optimizasyonu)
+# ---------------------------------------------------------------------------
+
+def download_full_video(
+    url: str,
+    video_id: str = "video",
+    raw_dir: Path | None = None,
+) -> Path:
+    """
+    Videonun tamamını raw_videos/ klasörüne indirir ve dosya yolunu döndürür.
+
+    Aynı video_id daha önce indirilmişse diskte aranır; mevcutsa tekrar
+    indirilmez (önbellekleme). Bu fonksiyon çoklu kesit senaryosunda
+    her video için yalnızca bir kez çağrılır.
+
+    Args:
+        url: YouTube video bağlantısı
+        video_id: Dosya adı ön eki (genellikle YouTube video ID'si)
+        raw_dir: Ham videoların kaydedileceği klasör (varsayılan: config.RAW_DIR)
+
+    Returns:
+        İndirilen tam video dosyasının yolu (Path)
+    """
+    raw_dir = Path(raw_dir) if raw_dir else config.RAW_DIR
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = f"{video_id}_full"
+
+    # Daha önce indirilmişse tekrar indirme
+    existing = _find_downloaded_file(raw_dir, stem)
+    if existing:
+        LOGGER.info("Ham video zaten mevcut, tekrar indirilmeyecek: %s", existing.name)
+        return existing
+
+    LOGGER.info("Ham video indiriliyor (bir kez): %s", url[:80])
+    options = base_ytdlp_options()
+    options.update(
+        {
+            "format": config.YTDLP_FORMAT,
+            "outtmpl": {"default": str(raw_dir / f"{stem}.%(ext)s")},
+            "merge_output_format": "mp4",
+            "overwrites": True,
+            "quiet": True,
+            "noprogress": True,
+        }
+    )
+    _download(url, options, "Ham video indirme")
+
+    full_path = _find_downloaded_file(raw_dir, stem)
+    if full_path is None:
+        raise DownloadError("Ham video indirildi ancak dosya bulunamadı.")
+
+    LOGGER.info("Ham video hazır: %s", full_path.name)
+    return full_path
+
+
+def cut_clip_from_file(
+    source: Path,
+    start_time: float,
+    end_time: float,
+    video_id: str = "clip",
+    temp_dir: Path | None = None,
+) -> Path:
+    """
+    Daha önce indirilmiş bir ham videodan belirtilen aralığı keser.
+    Ağ erişimi yoktur; tümüyle yerel FFmpeg işlemidir.
+
+    Args:
+        source: Ham video dosyası (raw_videos/ içindeki tam video)
+        start_time: Başlangıç saniyesi
+        end_time: Bitiş saniyesi
+        video_id: Çıktı dosyası adı ön eki
+        temp_dir: Ara dosyaların yazılacağı klasör (varsayılan: config.TEMP_DIR)
+
+    Returns:
+        Kesilen klip dosyasının yolu (Path)
+    """
+    if end_time <= start_time:
+        raise DownloadError(f"Geçersiz aralık: {start_time} -> {end_time}")
+    if not source.exists():
+        raise DownloadError(f"Ham video bulunamadı: {source}")
+
+    temp_dir = Path(temp_dir) if temp_dir else config.TEMP_DIR
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = f"{video_id}_raw"
+    target_duration = end_time - start_time
+
+    LOGGER.info(
+        "Klip kesiliyor: %s -> %s (%.1f sn)",
+        format_timestamp(start_time), format_timestamp(end_time), target_duration,
+    )
+
+    try:
+        clip_path = _trim_with_ffmpeg(source, start_time, target_duration, temp_dir, stem)
+    except DownloadError:
+        raise
+
+    # Doğrula
+    try:
+        info = probe_video(clip_path)
+    except FFmpegError as exc:
+        raise DownloadError(f"Kesilen klip doğrulanamadı: {exc}") from exc
+
+    if info["duration"] <= 0.5:
+        raise DownloadError(f"Kesilen klip boş görünüyor (süre={info['duration']:.2f} sn).")
+
+    LOGGER.info(
+        "Klip hazır: %dx%d | %.1f sn | %s ses",
+        info["width"], info["height"], info["duration"],
+        "var" if info["has_audio"] else "YOK",
+    )
+    return clip_path
+
+
 if __name__ == "__main__":  # Basit manuel test
     import sys
 

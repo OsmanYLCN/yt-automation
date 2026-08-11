@@ -89,7 +89,8 @@ ENABLE_HEURISTIC_FALLBACK: bool = True
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 OUTPUT_DIR: Path = BASE_DIR / "outputs"    # Hazır Shorts videoları
-TEMP_DIR: Path = BASE_DIR / "temp"         # Ara dosyalar (indirme, altyazı, ham klip)
+TEMP_DIR: Path = BASE_DIR / "temp"         # Ara dosyalar (altyazı, ham klip)
+RAW_DIR: Path = BASE_DIR / "raw_videos"    # Tam indirilen ham videolar (önbellekleme)
 LOG_DIR: Path = BASE_DIR / "logs"          # Log dosyaları
 
 # İşlem bittikten sonra temp klasöründeki ara dosyalar silinsin mi?
@@ -219,8 +220,8 @@ LOG_FILE_NAME: str = "shorts_automation.log"
 # ---------------------------------------------------------------------------
 
 def ensure_directories() -> None:
-    """Gerekli klasörleri (outputs, temp, logs) oluşturur."""
-    for directory in (OUTPUT_DIR, TEMP_DIR, LOG_DIR):
+    """Gerekli klasörleri (outputs, temp, raw_videos, logs) oluşturur."""
+    for directory in (OUTPUT_DIR, TEMP_DIR, RAW_DIR, LOG_DIR):
         directory.mkdir(parents=True, exist_ok=True)
 
 
