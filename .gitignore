@@ -32,7 +32,7 @@ wheels/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Unit test 
 htmlcov/
 .tox/
 .coverage
@@ -76,7 +76,7 @@ temp/
 *.part
 *.ytdl
 
-# Video files (büyük dosyalar)
+# Video files 
 *.mp4
 *.avi
 *.mov
@@ -88,7 +88,7 @@ temp/
 *.wav
 *.aac
 
-# Subtitle files (outputs klasöründe saklanacaklar)
+# Subtitle files 
 *.srt
 *.vtt
 *.ass
@@ -103,9 +103,9 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Proje analiz ve durum raporu
+# Proje analizi
 PROJECT_REPORT.md
 
-# Ham (tam) indirilen videolar
+# Ham videolar
 raw_videos/
-
+
