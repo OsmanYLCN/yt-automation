@@ -1,31 +1,4 @@
 #!/usr/bin/env python3
-"""
-main.py
-====
-YouTube Shorts otomasyon hattının ana çalıştırıcısı.
-
-İşlem akışı (her bağlantı için):
-  1. Transkripti indir                -> transcript_fetcher
-  2. Dinamik çoklu kesit seçimi       -> llm_analyzer (Abacus AI RouteLLM)
-     + her kesitin Türkçe çevirisi
-  3. Ham videoyu tek seferlik indir   -> video_downloader (raw_videos/ klasörüne)
-  4. Her kesit için sırayla:
-     a. Ham videodan aralığı kes      -> video_downloader
-     b. 9:16 dikey formata çevir      -> video_processor
-     c. Türkçe altyazıyı göm          -> subtitle_burner
-  5. outputs/ klasörüne kaydet
-
-Kullanım örnekleri:
-    python main.py                    # Etkileşimli mod
-    python main.py "https://youtu.be/XXXX"          # Tek video
-    python main.py URL1 URL2 URL3                   # Çoklu video
-    python main.py --urls-file linkler.txt
-    python main.py URL --model gemini-1.5-pro --subtitle-mode karaoke
-
-
-    python main.py URL --manual-clip 120-165        # LLM'siz, elle aralık
-"""
-
 from __future__ import annotations
 
 import argparse
